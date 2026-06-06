@@ -1,0 +1,9 @@
+const String kLoginRoute = '/login';
+const String kRegisterRoute = '/register';
+const String kDashboardRoute = '/dashboard';
+const String kTransactionsRoute = '/transactions';
+const String kAddTransactionRoute = '/transactions/add';
+const String kBudgetsRoute = '/budgets';
+const String kGoalsRoute = '/goals';
+const String kProfileRoute = '/profile';
+const String kAnalyticsRoute = '/analytics';
