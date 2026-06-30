@@ -15,14 +15,18 @@ Future<String> exportTransactionsToCSV(
   final header = 'date,description,category,type,amount,account,currency\n';
   final buffer = StringBuffer(header);
 
+  String escapeCSVField(String val) {
+    if (val.contains(',') || val.contains('"') || val.contains('\n') || val.contains('\r')) {
+      return '"${val.replaceAll('"', '""')}"';
+    }
+    return val;
+  }
+
   for (var t in transactions) {
     final date = DateFormat('yyyy-MM-dd').format(t.transactionDate);
-    final descValue = t.description ?? '';
-    final desc = descValue.contains(',') ? '"$descValue"' : descValue;
-    final catValue = t.categoryName ?? '';
-    final cat = catValue.contains(',') ? '"$catValue"' : catValue;
-    final accValue = t.accountName ?? '';
-    final acc = accValue.contains(',') ? '"$accValue"' : accValue;
+    final desc = escapeCSVField(t.description ?? '');
+    final cat = escapeCSVField(t.categoryName ?? '');
+    final acc = escapeCSVField(t.accountName ?? '');
     
     buffer.write('$date,$desc,$cat,${t.transactionType},${t.amount},$acc,$currencyCode\n');
   }

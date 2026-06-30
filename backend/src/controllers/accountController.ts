@@ -71,31 +71,46 @@ export const deleteAccount = async (req: AuthRequest, res: Response) => {
 };
 
 export const getBalanceHistory = async (req: AuthRequest, res: Response) => {
-    // Get balance history for account (last 30 days grouped by date)
     try {
         const accountId = req.params.accountId;
         const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+        thirtyDaysAgo.setHours(0, 0, 0, 0);
 
         const transactions = await prisma.transaction.findMany({
             where: {
                 account_id: accountId as string,
-                user_id: req.user?.userId,
-                transaction_date: { gte: thirtyDaysAgo }
+                user_id: req.user?.userId
             },
             orderBy: { transaction_date: 'asc' }
         });
 
-        const history: Record<string, number> = {};
-        let currentBalance = 0; // This is tricky. Simplified for now: just group net change by day.
-
-        // Proper way would be starting balance + cumulative sum
-        // For now, let's just return a summary of net changes per day
-        transactions.forEach(t => {
-            const date = t.transaction_date.toISOString().split('T')[0];
-            const amount = t.transaction_type === 'income' ? t.amount : -t.amount;
-            history[date] = (history[date] || 0) + amount;
+        // Compute starting balance before thirty days ago
+        let balance = 0;
+        const beforeTransactions = transactions.filter(t => new Date(t.transaction_date) < thirtyDaysAgo);
+        beforeTransactions.forEach(t => {
+            balance += t.transaction_type === 'income' ? t.amount : -t.amount;
         });
+
+        const history: Record<string, number> = {};
+
+        // Compute balance daily for the last 30 days
+        for (let i = 29; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+
+            const dayTransactions = transactions.filter(t => {
+                const tDateStr = new Date(t.transaction_date).toISOString().split('T')[0];
+                return tDateStr === dateStr;
+            });
+
+            dayTransactions.forEach(t => {
+                balance += t.transaction_type === 'income' ? t.amount : -t.amount;
+            });
+
+            history[dateStr] = balance;
+        }
 
         res.json({ success: true, data: history });
     } catch (error: any) {

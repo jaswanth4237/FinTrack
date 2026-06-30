@@ -73,21 +73,24 @@ export const deleteGoal = async (req: AuthRequest, res: Response) => {
 export const contributeToGoal = async (req: AuthRequest, res: Response) => {
     const { amount } = req.body;
     try {
-        const goal = await prisma.financialGoal.update({
-            where: { id: req.params.goalId as string, user_id: req.user?.userId },
-            data: {
-                saved_amount: { increment: Number(amount) }
+        const updatedGoal = await prisma.$transaction(async (tx) => {
+            const goal = await tx.financialGoal.update({
+                where: { id: req.params.goalId as string, user_id: req.user?.userId },
+                data: {
+                    saved_amount: { increment: Number(amount) },
+                }
+            });
+
+            if (goal.saved_amount >= goal.target_amount && !goal.is_completed) {
+                return tx.financialGoal.update({
+                    where: { id: goal.id },
+                    data: { is_completed: true }
+                });
             }
+            return goal;
         });
 
-        if (goal.saved_amount >= goal.target_amount) {
-            await prisma.financialGoal.update({
-                where: { id: goal.id },
-                data: { is_completed: true }
-            });
-        }
-
-        res.json({ success: true, data: goal, message: 'Contribution added successfully' });
+        res.json({ success: true, data: updatedGoal, message: 'Contribution added successfully' });
     } catch (error: any) {
         res.status(500).json({ success: false, error: 'SERVER_ERROR', message: error.message });
     }

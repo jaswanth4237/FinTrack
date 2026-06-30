@@ -42,7 +42,8 @@ class _BudgetProgressBarState extends State<BudgetProgressBar> with SingleTicker
     super.dispose();
   }
 
-  Color _getColor(double percentage) {
+  Color _getColor() {
+    final percentage = widget.spent / widget.limit;
     if (percentage < 0.6) return const Color(0xFF4CAF50); // green
     if (percentage * 100 < widget.alertThreshold) return const Color(0xFFFF9800); // orange
     return const Color(0xFFF44336); // red
@@ -69,7 +70,7 @@ class _BudgetProgressBarState extends State<BudgetProgressBar> with SingleTicker
                 widthFactor: currentPercentage,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: _getColor(currentPercentage),
+                    color: _getColor(),
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),

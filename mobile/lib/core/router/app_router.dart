@@ -1,4 +1,5 @@
-
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/core/router/route_names.dart';
 import 'package:mobile/features/auth/cubit/auth_cubit.dart';
@@ -13,8 +14,24 @@ import 'package:mobile/features/goals/screens/goals_screen.dart';
 import 'package:mobile/features/profile/screens/profile_screen.dart';
 import 'package:mobile/features/profile/screens/analytics_screen.dart';
 
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription = stream.asBroadcastStream().listen((dynamic _) => notifyListeners());
+  }
+
+  late final StreamSubscription<dynamic> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
 final GoRouter appRouter = GoRouter(
   initialLocation: kDashboardRoute,
+  refreshListenable: GoRouterRefreshStream(getIt<AuthCubit>().stream),
   redirect: (context, state) {
     final authCubit = getIt<AuthCubit>();
     final isAuthenticated = authCubit.state.isAuthenticated;

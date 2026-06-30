@@ -55,28 +55,24 @@ export const createTransaction = async (req: AuthRequest, res: Response) => {
     }
 
     try {
-        const transaction = await prisma.$transaction(async (tx) => {
-            const t = await tx.transaction.create({
-                data: {
-                    amount: Number(amount),
-                    transaction_type,
-                    description,
-                    transaction_date: new Date(transaction_date),
-                    is_recurring: is_recurring || false,
-                    recurrence_rule,
-                    user_id: req.user!.userId,
-                    account_id,
-                    category_id
-                }
-            });
+        const transaction = await prisma.transaction.create({
+            data: {
+                amount: Number(amount),
+                transaction_type,
+                description,
+                transaction_date: new Date(transaction_date),
+                is_recurring: is_recurring || false,
+                recurrence_rule,
+                user_id: req.user!.userId,
+                account_id,
+                category_id
+            }
+        });
 
-            const newBalance = await calculateAccountBalance(account_id);
-            await tx.account.update({
-                where: { id: account_id },
-                data: { balance: newBalance }
-            });
-
-            return t;
+        const newBalance = await calculateAccountBalance(account_id);
+        await prisma.account.update({
+            where: { id: account_id },
+            data: { balance: newBalance }
         });
 
         res.status(201).json({ success: true, data: transaction });
@@ -100,20 +96,30 @@ export const getTransaction = async (req: AuthRequest, res: Response) => {
 
 export const updateTransaction = async (req: AuthRequest, res: Response) => {
     try {
-        const transaction = await prisma.$transaction(async (tx) => {
-            const t = await tx.transaction.update({
-                where: { id: req.params.transactionId as string, user_id: req.user?.userId },
-                data: req.body
-            });
-
-            const newBalance = await calculateAccountBalance(t.account_id);
-            await tx.account.update({
-                where: { id: t.account_id },
-                data: { balance: newBalance }
-            });
-
-            return t;
+        const oldTransaction = await prisma.transaction.findFirst({
+            where: { id: req.params.transactionId as string, user_id: req.user?.userId }
         });
+        if (!oldTransaction) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Transaction not found' });
+
+        const transaction = await prisma.transaction.update({
+            where: { id: req.params.transactionId as string },
+            data: req.body
+        });
+
+        const newBalance = await calculateAccountBalance(transaction.account_id);
+        await prisma.account.update({
+            where: { id: transaction.account_id },
+            data: { balance: newBalance }
+        });
+
+        if (oldTransaction.account_id !== transaction.account_id) {
+            const oldBalance = await calculateAccountBalance(oldTransaction.account_id);
+            await prisma.account.update({
+                where: { id: oldTransaction.account_id },
+                data: { balance: oldBalance }
+            });
+        }
+
         res.json({ success: true, data: transaction });
     } catch (error: any) {
         res.status(500).json({ success: false, error: 'SERVER_ERROR', message: error.message });
@@ -122,21 +128,19 @@ export const updateTransaction = async (req: AuthRequest, res: Response) => {
 
 export const deleteTransaction = async (req: AuthRequest, res: Response) => {
     try {
-        const transaction = await prisma.transaction.findUnique({
+        const transaction = await prisma.transaction.findFirst({
             where: { id: req.params.transactionId as string, user_id: req.user?.userId }
         });
         if (!transaction) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Transaction not found' });
 
-        await prisma.$transaction(async (tx) => {
-            await tx.transaction.delete({
-                where: { id: req.params.transactionId as string }
-            });
+        await prisma.transaction.delete({
+            where: { id: req.params.transactionId as string }
+        });
 
-            const newBalance = await calculateAccountBalance(transaction.account_id);
-            await tx.account.update({
-                where: { id: transaction.account_id },
-                data: { balance: newBalance }
-            });
+        const newBalance = await calculateAccountBalance(transaction.account_id);
+        await prisma.account.update({
+            where: { id: transaction.account_id },
+            data: { balance: newBalance }
         });
 
         res.json({ success: true, message: 'Transaction deleted' });

@@ -44,26 +44,38 @@ void main() {
       act: (cubit) => cubit.login('test@test.com', 'password'),
       expect: () => [
         isA<AuthState>().having((s) => s.isLoading, 'isLoading', true),
-        isA<AuthState>().having((s) => s.isAuthenticated, 'isAuthenticated', true),
+        isA<AuthState>().having((s) => s.isAuthenticated, 'isAuthenticated', true).having((s) => s.isLoading, 'isLoading', false),
       ],
     );
 
     blocTest<AuthCubit, AuthState>(
-      'register emits success states',
+      'login emits a state with isLoading: true followed by a state with a non-null errorMessage on API failure',
       build: () {
-        when(() => mockAuthRepository.register(any())).thenAnswer(
-          (_) async => AuthSuccess(
-            user: UserModel(id: '1', email: 'test@test.com', fullName: 'Test Name', currencyCode: 'INR'),
-            accessToken: 'access',
-            refreshToken: 'refresh',
-          ),
+        when(() => mockAuthRepository.login(any(), any())).thenAnswer(
+          (_) async => AuthFailure('Invalid credentials'),
         );
         return authCubit;
       },
-      act: (cubit) => cubit.register(RegisterFormData(email: 'a@b.com', password: 'P1!', fullName: 'A B')),
+      act: (cubit) => cubit.login('test@test.com', 'wrong_password'),
       expect: () => [
         isA<AuthState>().having((s) => s.isLoading, 'isLoading', true),
-        isA<AuthState>().having((s) => s.isAuthenticated, 'isAuthenticated', true),
+        isA<AuthState>()
+            .having((s) => s.isLoading, 'isLoading', false)
+            .having((s) => s.errorMessage, 'errorMessage', isNotNull),
+      ],
+    );
+
+    blocTest<AuthCubit, AuthState>(
+      'logout emits a state with isAuthenticated: false and user as null',
+      build: () {
+        when(() => mockAuthRepository.logout()).thenAnswer((_) async {});
+        return authCubit;
+      },
+      act: (cubit) => cubit.logout(),
+      expect: () => [
+        isA<AuthState>()
+            .having((s) => s.isAuthenticated, 'isAuthenticated', false)
+            .having((s) => s.user, 'user', null),
       ],
     );
   });

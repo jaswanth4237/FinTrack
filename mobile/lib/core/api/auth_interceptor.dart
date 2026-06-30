@@ -27,7 +27,12 @@ class AuthInterceptor extends Interceptor {
       if (_refreshCompleter != null) {
         final success = await _refreshCompleter!.future;
         if (success) {
-          return handler.resolve(await _retry(err.requestOptions));
+          try {
+            final response = await _retry(err.requestOptions);
+            return handler.resolve(response);
+          } catch (e) {
+            return handler.next(err);
+          }
         }
       } else {
         _refreshCompleter = Completer<bool>();
@@ -35,18 +40,26 @@ class AuthInterceptor extends Interceptor {
           final refreshToken = await storage.read(key: 'refresh_token');
           if (refreshToken != null) {
             final response = await dio.post('/auth/refresh', data: {'refresh_token': refreshToken});
-            if (response.statusCode == 200) {
+            if (response.statusCode == 200 || response.statusCode == 201) {
               final newAccessToken = response.data['data']['access_token'];
               await storage.write(key: 'access_token', value: newAccessToken);
               _refreshCompleter!.complete(true);
               _refreshCompleter = null;
-              return handler.resolve(await _retry(err.requestOptions));
+              try {
+                final retriedResponse = await _retry(err.requestOptions);
+                return handler.resolve(retriedResponse);
+              } catch (e) {
+                return handler.next(err);
+              }
             }
           }
+          _refreshCompleter!.complete(false);
+          _refreshCompleter = null;
+          await authCubit.logout();
         } catch (e) {
           _refreshCompleter!.complete(false);
           _refreshCompleter = null;
-          authCubit.logout(); // Redirect to login
+          await authCubit.logout();
         }
       }
     }
