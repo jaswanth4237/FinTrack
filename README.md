@@ -1,6 +1,6 @@
 # FinTrack - Personal Finance & Budget Tracker
 
-FinTrack is an robust, production-ready full-stack application designed to help users manage their personal finances with ease. It emphasizes an **offline-first** architecture, ensuring users can track expenses and manage budgets even without an internet connection.
+FinTrack is a robust, production-ready full-stack application designed to help users manage their personal finances with ease. It emphasizes an **offline-first** architecture, ensuring users can track expenses and manage budgets even without an internet connection.
 
 ## 🚀 The Problem & Solution
 
